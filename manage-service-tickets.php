@@ -80,6 +80,41 @@ function getSearchCriteria($status, $last_state) {
 	];
 }
 
+function closeTicket($id) {
+	$glpi->updateItem('Ticket', [
+		'input'	=> [
+			'id'		=> $id,
+			'status'	=> 6
+		]
+	]);
+}
+
+function createTicket() {
+	$state_label = ucfirst(strtolower($servicestate));
+	$glpi->addItem('Ticket', [
+		'input'	=> [
+			'name' => "$service on $eventhost is in a $state_label State!",
+			'content' => "$service on $eventhost is in a $state_label State.  Please check that the service or check is running and responding correctly \n
+				Check service status at ${$config['nagios_host']} \n
+				<b>Service Check Details</b> 
+				Host \t\t\t = $eventhost \n
+				Service Check \t = $service \n
+				State \t\t\t = $servicestate \n
+				Check Attempts \t = $serviceattempts/$maxserviceattempts \n
+				Check Command \t = $servicecheckcommand \n
+				Check Output \t\t = $serviceoutput \n\n
+				$longserviceoutput",
+			'priority' => $config['critical_priority'],
+			'_users_id_requester' => $config['glpi_requester_user_id'],
+			'_groups_id_requester' => $config['glpi_requester_group_id'],
+			'_users_id_observer' => $config['glpi_watcher_user_id'],
+			'_groups_id_observer' => $config['glpi_watcher_group_id'],
+			'_users_id_assign' => $config['glpi_assign_user_id'],
+			'_groups_id_assign' => $config['glpi_assign_user_id']
+		]
+	]);
+}
+
 // What state is the HOST in?
 if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are UP
 	logging("Manage Service Tickets: Host is up, checking service state");
@@ -89,43 +124,24 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 			# The service just came back up - perhaps we should close the ticket...
 			switch($lastservicestate){
 				case "CRITICAL":
-					logging("Manage Service Tickets: Last Service State Critical, checking for open Critical Tickets");
-					$search = getSearchCriteria(STATUS_OPEN, $lastservicestate);
-
-					$tickets = $glpi->search('Ticket', $search);
-					if (!empty($tickets['data']->data)){
-						logging("Manage Service Tickets: Found open Critical Tickets, updating tickets");
-						$post = array('input' => array());
-						foreach ($tickets['data']->data as $ticket) {
-							$post['input'][] = array('id' => $ticket->{2} , 'status' => 6);
-							$glpi->updateItem('Ticket', $post);
-						}
-					} else {
-						logging("Manage Service Tickets: No Critical Tickets found, exiting gracefully");
-					}
-					break;
 				case "WARNING":
-					logging("Manage Service Tickets: Last Service State Warning, checking for open Warning Tickets");
+					logging("Manage Service Tickets: Last Service State $lastservicestate, checking for open $lastservicestate Tickets");
 					$search = getSearchCriteria(STATUS_OPEN, $lastservicestate);
 
 					$tickets = $glpi->search('Ticket', $search);
 
 					if (!empty($tickets['data']->data)){
-						logging("Manage Service Tickets: Found open Warning Tickets, updating tickets");
-						$post = array('input' => array());
+						logging("Manage Service Tickets: Found open $lastservicestate Tickets, updating tickets");
 						foreach ($tickets['data']->data as $ticket) {
-							$post['input'][] = array('id' => $ticket->{2} , 'status' => 6);
-							$glpi->updateItem('Ticket', $post);
+							closeTicket($ticket->{2});
 						}
 					} else {
-						logging("Manage Service Tickets: No Warning Tickets found, exiting gracefully");
+						logging("Manage Service Tickets: No $lastservicestate Tickets found, exiting gracefully");
 					}
 					break;
 				case "OK":
-					logging("Manage Service Tickets: Last Service State OK, exiting gracefully");
-					break;
 				case "UNKNOWN":
-					logging("Manage Service Tickets: Last Service State UNKNOWN, exiting gracefully");
+					logging("Manage Service Tickets: Last Service State $lastservicestate, exiting gracefully");
 					break;
 			} //Last Service State
 			break;
@@ -160,58 +176,8 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 								}
 								break;
 							case "OK":
-								logging("Manage Service Tickets: Last Service State is OK, Creating new Critical ticket");
-								//Create a new ticket
-								$ticket = array(
-									'input' => array(
-										'name' => "$service on $eventhost is in a Critical State!",
-										'content' => "$service on $eventhost is in a Critical State.  Please check that the service or check is running and responding correctly \n
-											Check service status at ${$config['nagios_host']} \n
-											<b>Service Check Details</b> 
-											Host \t\t\t = $eventhost 
-											Service Check \t = $service 
-											State \t\t\t = $servicestate 
-											Check Attempts \t = $serviceattempts/$maxserviceattempts 
-											Check Command \t = $servicecheckcommand 
-											Check Output \t\t = $serviceoutput 
-											$longserviceoutput",
-										'priority' => $config['critical_priority'],
-										'_users_id_requester' => $config['glpi_requester_user_id'],
-										'_groups_id_requester' => $config['glpi_requester_group_id'],
-										'_users_id_observer' => $config['glpi_watcher_user_id'],
-										'_groups_id_observer' => $config['glpi_watcher_group_id'],
-										'_users_id_assign' => $config['glpi_assign_user_id'],
-										'_groups_id_assign' => $config['glpi_assign_user_id']
-									)
-								);
-								$glpi->addItem('Ticket', $ticket);
-								break;
 							case "UNKNOWN":
-								logging("Manage Service Tickets: Last Service State is UNKNOWN, Creating new Critical ticket");
-								//Create a new ticket
-								$ticket = array(
-									'input' => array(
-										'name' => "$service on $eventhost is in a Critical State!",
-										'content' => "$service on $eventhost is in a Critical State.  Please check that the service or check is running and responding correctly \n
-											Check service status at ${$config['nagios_host']} \n
-											<b>Service Check Details</b> 
-											Host \t\t\t = $eventhost 
-											Service Check \t = $service 
-											State \t\t\t = $servicestate 
-											Check Attempts \t = $serviceattempts/$maxserviceattempts 
-											Check Command \t = $servicecheckcommand 
-											Check Output \t\t = $serviceoutput 
-											$longserviceoutput",
-										'priority' => $config['critical_priority'],
-										'_users_id_requester' => $config['glpi_requester_user_id'],
-										'_groups_id_requester' => $config['glpi_requester_group_id'],
-										'_users_id_observer' => $config['glpi_watcher_user_id'],
-										'_groups_id_observer' => $config['glpi_watcher_group_id'],
-										'_users_id_assign' => $config['glpi_assign_user_id'],
-										'_groups_id_assign' => $config['glpi_assign_user_id']
-									)
-								);
-								$glpi->addItem('Ticket', $ticket);
+								createTicket();
 								break;
 						} //Last Service State
 					} //Service Attempts
@@ -247,58 +213,8 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 								}
 								break;
 							case "OK":
-								logging("Manage Service Tickets: Last Service State is OK, Creating new Warning ticket");
-								//Create a new ticket
-								$ticket = array(
-									'input' => array(
-										'name' => "$service on $eventhost is in a Warning State!",
-										'content' => "$service on $eventhost is in a Warning State.  Please check that the service or check is running and responding correctly \n
-										Check service status at ${$config['nagios_host']} \n
-										<b>Service Check Details</b> 
-										Host \t\t\t = $eventhost 
-										Service Check \t = $service 
-										State \t\t\t = $servicestate 
-										Check Attempts \t = $serviceattempts/$maxserviceattempts 
-										Check Command \t = $servicecheckcommand 
-										Check Output \t = $serviceoutput 
-										$longserviceoutput",
-										'priority' => $config['warning_priority'],
-										'_users_id_requester' => $config['glpi_requester_user_id'],
-										'_groups_id_requester' => $config['glpi_requester_group_id'],
-										'_users_id_observer' => $config['glpi_watcher_user_id'],
-										'_groups_id_observer' => $config['glpi_watcher_group_id'],
-										'_users_id_assign' => $config['glpi_assign_user_id'],
-										'_groups_id_assign' => $config['glpi_assign_user_id']
-									)
-								);
-								$glpi->addItem('Ticket', $ticket);
-								break;
 							case "UNKNOWN":
-								logging("Manage Service Tickets: Last Service State is UNKNOWN, Creating new Warning ticket");
-								//Create a new ticket
-								$ticket = array(
-									'input' => array(
-										'name' => "$service on $eventhost is in a Warning State!",
-										'content' => "$service on $eventhost is in a Warning State.  Please check that the service or check is running and responding correctly \n
-										Check service status at $nagios_host \n
-										<b>Service Check Details</b> 
-										Host \t\t\t = $eventhost 
-										Service Check \t = $service 
-										State \t\t\t = $servicestate 
-										Check Attempts \t = $serviceattempts/$maxserviceattempts 
-										Check Command \t = $servicecheckcommand 
-										Check Output \t = $serviceoutput 
-										$longserviceoutput",
-										'priority' => $config['warning_priority'],
-										'_users_id_requester' => $config['glpi_requester_user_id'],
-										'_groups_id_requester' => $config['glpi_requester_group_id'],
-										'_users_id_observer' => $config['glpi_watcher_user_id'],
-										'_groups_id_observer' => $config['glpi_watcher_group_id'],
-										'_users_id_assign' => $config['glpi_assign_user_id'],
-										'_groups_id_assign' => $config['glpi_assign_user_id']
-									)
-								);
-								$glpi->addItem('Ticket', $ticket);
+								createTicket();
 								break;
 						} //Last Service State
 					}
