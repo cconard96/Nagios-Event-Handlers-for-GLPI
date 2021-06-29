@@ -1,6 +1,7 @@
 <?php
 ini_set("error_reporting", 'on');
 error_reporting(E_ALL);
+
 class GLPI_API {
 	private $username;
 

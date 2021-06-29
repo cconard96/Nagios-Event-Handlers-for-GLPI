@@ -4,7 +4,6 @@ require_once("glpi_api.php");
 
 $config = require('config.php');
 
-
 function logging($msg) {
 	if ($config['logging']) {
 		syslog(LOG_INFO, $msg);
@@ -19,29 +18,29 @@ if (!extension_loaded("curl")) {
 }
 
 $glpi = new GLPI_API([
-	'username' => $config['glpi_user'],
-	'password' => $config['glpi_password'],
-	'apikey' => $config['glpi_apikey'],
-	'host' => $config['glpi_host'],
-	'verifypeer' => $config['verifypeer']
+	'username' 		=> $config['glpi_user'],
+	'password' 		=> $config['glpi_password'],
+	'apikey' 		=> $config['glpi_apikey'],
+	'host' 			=> $config['glpi_host'],
+	'verifypeer' 	=> $config['verifypeer']
 ]);
 
-$eventval=array();
-if ($argv>1) {
-	for ($i=1 ; $i<count($argv) ; $i++) {
-		$it = explode("=",$argv[$i],2);
-		$it[0] = preg_replace('/^--/','',$it[0]);
+$eventval = array();
+if ($argv > 1) {
+	for ($i = 1; $i < count($argv); $i++) {
+		$it = explode("=", $argv[$i], 2);
+		$it[0] = preg_replace('/^--/', '', $it[0]);
 		$eventval[$it[0]] = (isset($it[1]) ? $it[1] : true);
 	}
 }
 
-$eventhost=$eventval['eventhost'];
-$hoststate=$eventval['hoststate'];
-$hoststatetype=$eventval['hoststatetype'];
-$hostattempts=$eventval['hostattempts'];
-$maxhostattempts=$eventval['maxhostattempts'];
-$hostproblemid=$eventval['hostproblemid'];
-$lasthostproblemid=$eventval['lasthostproblemid'];
+$eventhost = $eventval['eventhost'];
+$hoststate = $eventval['hoststate'];
+$hoststatetype = $eventval['hoststatetype'];
+$hostattempts = $eventval['hostattempts'];
+$maxhostattempts = $eventval['maxhostattempts'];
+$hostproblemid = $eventval['hostproblemid'];
+$lasthostproblemid = $eventval['lasthostproblemid'];
 unset($eventval);
 
 logging("Manage Host Tickets: EventHost = ".$eventhost);
@@ -59,29 +58,29 @@ switch ($hoststate) {
 		logging("Manage Host Tickets: Host '".$eventhost."' is UP, checking last problem ID");
 		if ($lasthostproblemid != 0) {
 			logging("Manage Host Tickets: Last Problem ID does not equal UP, searching for tickets to close");
-			$search = array(
-				'criteria' => array(
-					array(
+			$search = [
+				'criteria' => [
+					[
 						'field' => '12', //Status field
 						'searchtype' => 'equals',
 						'value' => 1 //Search on Open Tickets
-					),
-					array(
+					],
+					[
 						'link' => 'AND',
 						'field' => '1', //Title field
 						'searchtype' => 'contains',
 						'value' => "$eventhost is down!" //Search Title
-					)
-				)
-			);
+					]
+				]
+			];
 
 			$tickets = $glpi->search('Ticket', $search);
 
 			if (!empty($tickets['data']->data)){
 				logging("Manage Host Tickets: Found tickets to close, closing each ticket");
-				$post = array('input' => array());
+				$post = ['input' => []];
 				foreach ($tickets['data']->data as $ticket) {
-					$post['input'][] = array('id' => $ticket->{2} , 'status' => 6);
+					$post['input'][] = ['id' => $ticket->{2} , 'status' => 6];
 					$glpi->updateItem('Ticket', $post);
 				}
 			}
@@ -109,8 +108,8 @@ switch ($hoststate) {
 						logging("Manage Host Tickets: Last Problem ID is incremented, checking host attempts");
 						if ($hostattempts == $maxhostattempts){
 							logging("Manage Host Tickets: Host Attempts equal Max Host Attempts, creating a new ticket");
-							$ticket = array(
-								'input' => array(
+							$ticket = [
+								'input' => [
 									'name' => "$eventhost is down!",
 									'content' => "$eventhost is down.  Please check that the host is up and responding \n\r
 									Check host status at $eventhost",
@@ -121,8 +120,8 @@ switch ($hoststate) {
 									'_groups_id_observer' => $config['glpi_watcher_group_id'],
 									'_users_id_assign' => $config['glpi_assign_user_id'],
 									'_groups_id_assign' => $config['glpi_assign_user_id']
-								)
-							);
+								]
+							];
 							$glpi->addItem('Ticket', $ticket);
 						}
 					}
@@ -133,4 +132,3 @@ switch ($hoststate) {
 }
 
 $glpi->killSession();
-?>
