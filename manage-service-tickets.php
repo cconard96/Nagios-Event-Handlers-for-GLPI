@@ -2,6 +2,8 @@
 error_reporting(E_ALL);
 require_once("glpi_api.php");
 
+const STATUS_OPEN = 1;
+
 $config = require('config.php');
 
 function logging($msg){
@@ -59,6 +61,25 @@ logging("Manage Service Tickets: ServiceCheckCommand = ".$servicecheckcommand);
 logging("Manage Service Tickets: ServiceOutput = ".$serviceoutput);
 logging("Manage Service Tickets: LongServiceOutput = ".$longserviceoutput);
 
+function getSearchCriteria($status, $last_state) {
+	$last_state = ucfirst(strtolower($last_state));
+	return [
+		'criteria' => [
+			[
+				'field'	=> '12',
+				'searchtype' => 'equals',
+				'value' => 1
+			],
+			[
+				'link'	=> 'AND',
+				'field'	=> '1',
+				'searchtype'	=> 'contains',
+				'value'			=> "$service on $eventhost is in a $last_state State!"
+			]
+		]
+	];
+}
+
 // What state is the HOST in?
 if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are UP
 	logging("Manage Service Tickets: Host is up, checking service state");
@@ -69,21 +90,7 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 			switch($lastservicestate){
 				case "CRITICAL":
 					logging("Manage Service Tickets: Last Service State Critical, checking for open Critical Tickets");
-					$search = array(
-						'criteria' => array(
-							array(
-								'field' => '12', //Status field
-								'searchtype' => 'equals',
-								'value' => 1 //Search on Open Tickets
-							),
-							array(
-								'link' => 'AND',
-								'field' => '1', //Title field
-								'searchtype' => 'contains',
-								'value' => "$service on $eventhost is in a Critical State!" //Search Title
-							)
-						)
-					);
+					$search = getSearchCriteria(STATUS_OPEN, $lastservicestate);
 
 					$tickets = $glpi->search('Ticket', $search);
 					if (!empty($tickets['data']->data)){
@@ -99,21 +106,7 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 					break;
 				case "WARNING":
 					logging("Manage Service Tickets: Last Service State Warning, checking for open Warning Tickets");
-					$search = array(
-						'criteria' => array(
-							array(
-								'field' => '12', //Status field
-								'searchtype' => 'equals',
-								'value' => 1 //Search on Open Tickets
-							),
-							array(
-								'link' => 'AND',
-								'field' => '1', //Title field
-								'searchtype' => 'contains',
-								'value' => "$service on $eventhost is in a Warning State!" //Search Title
-							)
-						)
-					);
+					$search = getSearchCriteria(STATUS_OPEN, $lastservicestate);
 
 					$tickets = $glpi->search('Ticket', $search);
 
@@ -149,21 +142,7 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 							case "WARNING":
 								logging("Manage Service Tickets: Last Service State is WARNING, Checking for open warning tickets");
 								//Update previous warning ticket(s)
-								$search = array(
-									'criteria' => array(
-										array(
-											'field' => '12', //Status field
-											'searchtype' => 'equals',
-											'value' => 1 //Search on Open Tickets
-										),
-										array(
-											'link' => 'AND',
-											'field' => '1', //Title field
-											'searchtype' => 'contains',
-											'value' => "$service on $eventhost is in a Warning State!" //Search Title
-										)
-									)
-								);
+								$search = getSearchCriteria(STATUS_OPEN, $lastservicestate);
 
 								$tickets = $glpi->search('Ticket', $search);
 								
@@ -251,21 +230,7 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 						switch($lastservicestate){
 							case "CRITICAL":
 								logging("Manage Service Tickets: Last Service State is CRITICAL, Checking for open critical tickets");
-								$search = array(
-									'criteria' => array(
-										array(
-											'field' => '12', //Status field
-											'searchtype' => 'equals',
-											'value' => 1 //Search on Open Tickets
-										),
-										array(
-											'link' => 'AND',
-											'field' => '1', //Title field
-											'searchtype' => 'contains',
-											'value' => "$service on $eventhost is in a Critical State!" //Search Title
-										)
-									)
-								);
+								$search = getSearchCriteria(STATUS_OPEN, $lastservicestate);
 
 								$tickets = $glpi->search('Ticket', $search);
 								
