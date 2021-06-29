@@ -80,10 +80,10 @@ function getSearchCriteria($status, $last_state) {
 	];
 }
 
-function closeTicket($id) {
+function closeTicket($tickets_id) {
 	$glpi->updateItem('Ticket', [
 		'input'	=> [
-			'id'		=> $id,
+			'id'		=> $tickets_id,
 			'status'	=> 6
 		]
 	]);
@@ -113,6 +113,27 @@ function createTicket() {
 			'_groups_id_assign' => $config['glpi_assign_user_id']
 		]
 	]);
+}
+
+function changeTicketNameStatus($tickets_id, $state) {
+	$state_label = ucfirst(strtolower($state));
+	$update_post['input'][] = [
+		'id' 		=> $tickets_id,
+		'name' 		=> "$service on $eventhost is in a $state_label State!",
+		'priority' 	=> $config['critical_priority']
+	];
+	$glpi->updateItem('Ticket', $update_post);
+}
+
+function addStateChangeFollowup($tickets_id, $state) {
+	$state_label = ucfirst(strtolower($state));
+	$followup_post['input'][] = [
+		'itemtype'		=> 'Ticket',
+		'items_id' 		=> $tickets_id,
+		'is_private' 	=> "0",
+		'content' 		=> "State changed to $state_label, priority updated"
+	];
+	$glpi->addItem('Ticket/' .$tickets_id .'/ITILFollowup', $followup_post);
 }
 
 // What state is the HOST in?
@@ -166,12 +187,8 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 									logging("Manage Service Tickets: Found open Warning Tickets, updating tickets");
 									$post = array('input' => array());
 									foreach ($tickets['data']->data as $ticket) {
-										$update_post['input'][] = [
-											'id' => $ticket->{2} , 'name' => "$service on $eventhost is in a Critical State!" , 'priority' => $config['critical_priority']
-										];
-										$glpi->updateItem('Ticket', $update_post);
-										$followup_post['input'][] = array('tickets_id' => $ticket->{2} , 'is_private' => "0" , 'content' => 'State changed to Critical, priority updated');
-										$glpi->addItem('Ticket/' . $ticket->{2} .'/TicketFollowup', $followup_post);
+										changeTicketNameStatus($ticket->{2}, $servicestate);
+										addStateChangeFollowup($ticket->{2}, $servicestate);
 									}
 								}
 								break;
@@ -203,12 +220,8 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 								if (!empty($tickets['data']->data)){
 									$post = array('input' => array());
 									foreach ($tickets['data']->data as $ticket) {
-										$update_post['input'][] = [
-											'id' => $ticket->{2} , 'name' => "$service on $eventhost is in a Warning State!" , 'priority' => $config['warning_priority']
-										];
-										$glpi->updateItem('Ticket', $update_post);
-										$followup_post['input'][] = array('tickets_id' => $ticket->{2} , 'is_private' => "0" , 'content' => 'State changed to Warning, priority updated');
-										$glpi->addItem('Ticket/' . $ticket->{2} .'/TicketFollowup', $followup_post);
+										changeTicketNameStatus($ticket->{2}, $servicestate);
+										addStateChangeFollowup($ticket->{2}, $servicestate);
 									}
 								}
 								break;
