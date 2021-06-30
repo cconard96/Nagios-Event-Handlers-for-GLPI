@@ -36,15 +36,10 @@ class GLPI_API {
      * https://github.com/jmoraleda/php-rest-curl
      * (c) 2014 Jordi Moraleda
      */
-
-    public function exec($method, $endpoint, $obj = array()) {
-        $url = $this->host;
-        $url = $this->fixpath($url);
-        $url .= $endpoint;
-        $url = $this->fixpath($url);
+    public function exec($method, $endpoint, $obj = []) {
+        $url = $this->getAPIUrl().'/'.$endpoint;
 
         $curl = curl_init();
-
         switch($method) {
             case 'GET':
                 if(!empty($obj)) {
@@ -64,30 +59,27 @@ class GLPI_API {
                 curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($obj)); // body
         }
 
-
         if($endpoint !== 'initSession' && $this->sessionkey == ''){
-            echo "Failed: No Session Key";
+            echo "Failed: No Session Key. Please call initSession first.";
             return;
         }
 
-        $headers = array(
+        $headers = [
             'Content-Type: application/json',
 			(isset($this->sessionkey) && !empty($this->sessionkey) ? 'Session-Token: ' . $this->sessionkey : 'Authorization: Basic ' . base64_encode($this->username . ':' . $this->password)),
 			'App-Token: ' . $this->apikey
-		);
+        ];
 
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_HEADER, TRUE);
-
-
+        curl_setopt($curl, CURLOPT_HEADER, true);
 
         if ($this->verifypeer === FALSE){
-		    curl_setopt ($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
-		    curl_setopt ($curl, CURLOPT_SSL_VERIFYHOST, FALSE);
+		    curl_setopt ($curl, CURLOPT_SSL_VERIFYPEER, false);
+		    curl_setopt ($curl, CURLOPT_SSL_VERIFYHOST, false);
         } else {
-            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, TRUE);
+            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
         }
         // Exec
         $response = curl_exec($curl);
@@ -98,7 +90,11 @@ class GLPI_API {
         $header = trim(substr($response, 0, $info['header_size']));
         $body = substr($response, $info['header_size']);
 
-        return array('status' => $info['http_code'], 'header' => $header, 'data' => json_decode($body));
+        return ['status' => $info['http_code'], 'header' => $header, 'data' => json_decode($body)];
+    }
+
+    protected function getAPIUrl() {
+        return $this->fixpath($this->host . '/apirest.php');
     }
 
     public function get($url, $obj = array()) {
@@ -177,10 +173,6 @@ class GLPI_API {
 	public function addItem($item, $post) {
 		return $this->post($item, $post);
 	}
-
-	//public function addFile($file) {
-	//	return $this->post('Document', $file);
-	//}
 
 	public function updateItem($item, $post) {
 		return $this->put($item, $post);
