@@ -64,8 +64,8 @@ switch ($hoststate) {
 				'criteria' => [
 					[
 						'field' => '12', //Status field
-						'searchtype' => 'equals',
-						'value' => 1 //Search on Open Tickets
+						'searchtype' => 'notcontains',
+						'value' => 6 //Search on not closed Tickets
 					],
 					[
 						'link' => 'AND',
