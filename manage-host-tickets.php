@@ -2,9 +2,11 @@
 error_reporting(E_ALL);
 require_once("glpi_api.php");
 
-$config = require('config.php');
+$config = require_once('config.php');
 
 function logging($msg) {
+	global $config;
+
 	if ($config['logging']) {
 		syslog(LOG_INFO, $msg);
 	}

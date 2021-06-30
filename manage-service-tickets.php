@@ -2,12 +2,12 @@
 error_reporting(E_ALL);
 require_once("glpi_api.php");
 
-const STATUS_OPEN = 1;
+$config = require_once('config.php');
 
-$config = require('config.php');
+function logging($msg) {
+	global $config;
 
-function logging($msg){
-	if ($config['log']) {
+	if ($config['logging']) {
 		syslog(LOG_INFO, $msg);
 	}
 }
@@ -27,14 +27,14 @@ $glpi = new GLPI_API([
 	'verifypeer' => $config['verifypeer']
 ]);
 
-$eventval=array();
-	if ($argv>1) {
-	   for ($i=1 ; $i<count($argv) ; $i++) {
-		  $it = explode("=",$argv[$i],2);
-		  $it[0] = preg_replace('/^--/','',$it[0]);
-		  $eventval[$it[0]] = (isset($it[1]) ? $it[1] : true);
-	   }
+$eventval = [];
+if ($argv>1) {
+	for ($i=1 ; $i<count($argv) ; $i++) {
+		$it = explode("=",$argv[$i],2);
+		$it[0] = preg_replace('/^--/','',$it[0]);
+		$eventval[$it[0]] = (isset($it[1]) ? $it[1] : true);
 	}
+}
 
 $eventhost=$eventval['eventhost'];
 $servicestate=$eventval['servicestate'];
@@ -61,14 +61,16 @@ logging("Manage Service Tickets: ServiceCheckCommand = ".$servicecheckcommand);
 logging("Manage Service Tickets: ServiceOutput = ".$serviceoutput);
 logging("Manage Service Tickets: LongServiceOutput = ".$longserviceoutput);
 
-function getSearchCriteria($status, $last_state) {
+function getOpenSearchCriteria($last_state) {
+	global $service, $eventhost;
+
 	$last_state = ucfirst(strtolower($last_state));
 	return [
 		'criteria' => [
 			[
 				'field'	=> '12',
-				'searchtype' => 'equals',
-				'value' => 1
+				'searchtype' => 'notcontains',
+				'value' => 6
 			],
 			[
 				'link'	=> 'AND',
@@ -81,6 +83,8 @@ function getSearchCriteria($status, $last_state) {
 }
 
 function closeTicket($tickets_id) {
+	global $glpi;
+
 	$glpi->updateItem('Ticket', [
 		'input'	=> [
 			'id'		=> $tickets_id,
@@ -90,19 +94,23 @@ function closeTicket($tickets_id) {
 }
 
 function createTicket() {
+	global $glpi, $config, $eventhost, $servicestate, $servicestatetype, $hoststate,
+	$service, $serviceattempts, $maxserviceattempts, $lastservicestate, $servicecheckcommand,
+	$serviceoutput, $longserviceoutput;
+
 	$state_label = ucfirst(strtolower($servicestate));
 	$glpi->addItem('Ticket', [
 		'input'	=> [
 			'name' => "$service on $eventhost is in a $state_label State!",
-			'content' => "$service on $eventhost is in a $state_label State.  Please check that the service or check is running and responding correctly \n
-				Check service status at ${$config['nagios_host']} \n
+			'content' => "$service on $eventhost is in a $state_label State.  Please check that the service or check is running and responding correctly<br>
+				Check service status at {$config['nagios_host']} \n
 				<b>Service Check Details</b> 
-				Host \t\t\t = $eventhost \n
-				Service Check \t = $service \n
-				State \t\t\t = $servicestate \n
-				Check Attempts \t = $serviceattempts/$maxserviceattempts \n
-				Check Command \t = $servicecheckcommand \n
-				Check Output \t\t = $serviceoutput \n\n
+				Host \t\t\t = $eventhost<br>
+				Service Check \t = $service<br>
+				State \t\t\t = $servicestate<br>
+				Check Attempts \t = $serviceattempts/$maxserviceattempts<br>
+				Check Command \t = $servicecheckcommand<br>
+				Check Output \t\t = $serviceoutput<br><br>
 				$longserviceoutput",
 			'priority' => $config['critical_priority'],
 			'_users_id_requester' => $config['glpi_requester_user_id'],
@@ -116,6 +124,8 @@ function createTicket() {
 }
 
 function changeTicketNameStatus($tickets_id, $state) {
+	global $glpi, $config, $service, $eventhost;
+
 	$state_label = ucfirst(strtolower($state));
 	$update_post['input'][] = [
 		'id' 		=> $tickets_id,
@@ -126,6 +136,8 @@ function changeTicketNameStatus($tickets_id, $state) {
 }
 
 function addStateChangeFollowup($tickets_id, $state) {
+	global $glpi;
+
 	$state_label = ucfirst(strtolower($state));
 	$followup_post['input'][] = [
 		'itemtype'		=> 'Ticket',
@@ -147,7 +159,7 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 				case "CRITICAL":
 				case "WARNING":
 					logging("Manage Service Tickets: Last Service State $lastservicestate, checking for open $lastservicestate Tickets");
-					$search = getSearchCriteria(STATUS_OPEN, $lastservicestate);
+					$search = getOpenSearchCriteria($lastservicestate);
 
 					$tickets = $glpi->search('Ticket', $search);
 
@@ -179,7 +191,7 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 							case "WARNING":
 								logging("Manage Service Tickets: Last Service State is WARNING, Checking for open warning tickets");
 								//Update previous warning ticket(s)
-								$search = getSearchCriteria(STATUS_OPEN, $lastservicestate);
+								$search = getOpenSearchCriteria($lastservicestate);
 
 								$tickets = $glpi->search('Ticket', $search);
 								
@@ -213,7 +225,7 @@ if (($hoststate == "UP")) {  // Only open tickets for services on hosts that are
 						switch($lastservicestate){
 							case "CRITICAL":
 								logging("Manage Service Tickets: Last Service State is CRITICAL, Checking for open critical tickets");
-								$search = getSearchCriteria(STATUS_OPEN, $lastservicestate);
+								$search = getOpenSearchCriteria($lastservicestate);
 
 								$tickets = $glpi->search('Ticket', $search);
 								
